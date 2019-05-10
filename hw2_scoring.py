@@ -145,7 +145,7 @@ def cal_score(result_file, score_file):
 
     # Calculate score for each student and each testcase, and then sum up each testcase score
     for stu_id in ID_list:
-        score_table.loc[stu_id, 'Student ID'] = stu_id
+        score_table.loc[stu_id, 'Student_ID'] = stu_id
         score_table.loc[stu_id, 'error'] = result[stu_id]['error']
         if result[stu_id]['error']:
             score_table.loc[stu_id,'Total_Score'] = 0
@@ -196,4 +196,15 @@ if __name__ == "__main__":
         json.dump(result, fp)
     score_table = cal_score("result.json", "score_distribution.json")
     store_score_table(score_table, "hw2_result.csv")
+
+    all_stu_IDs = pd.read_csv("student_list.txt", header=None)
+    scores = pd.read_csv("hw2_result.csv")
+    all_stu_IDs.columns = ["Id"]
+    all_stu_IDs = all_stu_IDs.set_index("Id")
+    scores = scores.set_index("Student_ID")
+
+    result = pd.concat([all_stu_IDs, scores], axis=1)
+    no_submission = result.isnull().all(axis=1)
+    result.loc[no_submission, "error"] = "No submission"
+    result.to_csv("hw2_final_score.csv")
 
