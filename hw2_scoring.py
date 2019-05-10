@@ -11,42 +11,49 @@ extracted_folder = "extracted"
 
 ID_pattern = '^\d{7}'
 
-def extract_zipfiles():
-    if not os.path.isdir(extracted_folder):
-        os.mkdir(extracted_folder)
+def mywalk_folder(cwd, ext=None):
+    for root, _, files in os.walk(cwd):
+        for file_ in files:
+            if not ext:
+                yield root, file_
+            elif ext and file_.endswith(ext):
+                yield root, file_
+
+def search_and_extract_zipfile(cwd, extracted_path):
+    for root, file_ in mywalk_folder(cwd, ext=".zip"):
+        file_path = os.path.join(root, file_)
+        with zipfile.ZipFile(file_path) as fp:
+            try:
+                fp.extractall(extracted_path)
+                return True, "Success"
+            except:
+                return False, "ID extract failed"
+
+    return False, "Can't find any zipfile"
+
+def extract_zipfiles(src_folder, dst_folder):
+    if not os.path.isdir(dst_folder):
+        os.mkdir(dst_folder)
 
     IDs = list()
     failed_list = list()
 
-    subm_folders = os.listdir(target_folder)
-    for stu_folder in subm_folders:
-        cwd = os.path.join(target_folder, stu_folder)
-        ID = re.search(ID_pattern, stu_folder).group(0)
+    sub_folders = os.listdir(src_folder)
+    for sub_folder in sub_folders:
+        cwd = os.path.join(src_folder, sub_folder)
 
+        # Extract student ID
+        ID = re.search(ID_pattern, sub_folder).group(0)
 
-        extracted_path = os.path.join(extracted_folder, ID)
+        # Check destination path
+        extracted_path = os.path.join(dst_folder, ID)
         if not os.path.isdir(extracted_path):
             os.mkdir(extracted_path)
 
-        found_zip = False
-        for root, dirs, files in os.walk(cwd):
-            for f in files:
-                if f.endswith(".zip"):
-                    found_zip = True
-
-                    file_path = os.path.join(root, f)
-                    with zipfile.ZipFile(file_path) as fp:
-                        try:
-                            fp.extractall(extracted_path)
-                        except:
-                            failed_list.append(ID)
-                            print("ID extract failed")
-
-                    break
-
-            if found_zip:
-                break
-
+        ret, msg = search_and_extract_zipfile(cwd, extracted_path)
+        if not ret:
+            failed_list.append({ID: msg})
+            print(msg)
 
         IDs.append(ID)
 
@@ -72,10 +79,11 @@ if __name__ == "__main__":
     parser.add_argument("--extract", help="Give student submission folder which contains zipfiles, the extracted file will be placed into ``target_folder``")
     args = parser.parse_args()
 
-    """
     #Extract zip file
-    #IDs, failed_list = extract_zipfiles()
+    if args.extract:
+        IDs, failed_list = extract_zipfiles(args.extract, args.target_folder)
 
+    """
     result = {}
     # May contains student files added manually
     IDs = os.listdir(extracted_folder)
