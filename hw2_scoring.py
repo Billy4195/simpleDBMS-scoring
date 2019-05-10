@@ -104,6 +104,60 @@ def execute_sys_test(result, target_folder, testsuite_path, verbose):
             with open("result.json", "w") as fp:
                 json.dump(result, fp)
 
+def cal_score(result_file, score_file, csv_filename):
+    # read file
+    with open(result_file , 'r') as reader:
+        result = json.loads(reader.read())
+    with open(score_file , 'r') as reader:
+        score = json.loads(reader.read())
+
+    # Get student ID list and testcases list
+    # Empty dataframe with student ID
+    ID_list = result.keys()
+    testsuite_list = list()
+    for level in score:
+        testsuite_list += score[level]['testsuites']
+
+    final_ = pd.DataFrame(index=ID_list)
+
+    # how many testsuiteuestion in the testcase
+    testcase_num = {}
+    for stu_id in result:
+        if result[stu_id]["error"]:
+            continue
+        for testsuite in testsuite_list:
+            testcase_num[testsuite] = result[stu_id][testsuite]['total']
+
+    # calculate score of each point as dict (score_each_suite_q)
+    score_each_suite_q = {}
+    for level in score.keys():
+        total_questions = 0
+        for suite in score[level]['testsuites']:
+            total_questions += testcase_num[suite]
+        for suite in score[level]['testsuites']:
+            score_each_suite_q[suite]= score[level]['score'] / total_questions
+
+    # Calculate score for each student and each testcase, and then sum up each testcase score
+    for stu_id in ID_list:
+        final_.loc[stu_id,'Id'] = stu_id
+        final_.loc[stu_id,'error'] = result[stu_id]['error']
+        if result[stu_id]['error']:
+            final_.loc[stu_id,'Total_Score'] = 0
+            for testsuite in testsuite_list:
+                final_.loc[stu_id,testsuite] = 0
+        else:
+            for testsuite in testsuite_list:
+                final_.loc[stu_id,testsuite] = result[stu_id][testsuite]['correct']*score_each_suite_q[testsuite]
+            final_.loc[stu_id,'Total_Score'] = final_.loc[stu_id,testsuite_list].sum()
+
+    if csv_filename[-4:] != ".csv":
+        csv_filename = csv_filename+'.csv'
+
+    columns = final_.columns.tolist()
+    columns.remove("error")
+    final_ = final_[ columns + ["error"] ]
+    final_.to_csv(csv_filename, index=False)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("target_folder",
