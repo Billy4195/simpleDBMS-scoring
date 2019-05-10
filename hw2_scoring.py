@@ -79,12 +79,15 @@ if __name__ == "__main__":
     #Extract zip file
     if args.extract:
         IDs = extract_zipfiles(args.extract, args.target_folder)
-    
-    """
-    result = {}
-    # May contains student files added manually
-    IDs = os.listdir(extracted_folder)
+        result = IDs
+    else:
+        # May contains student files added manually
+        IDs = os.listdir(args.target_folder)
+        result = dict()
+        for ID in IDs:
+            result[ID] = dict()
 
+    """
     for idx, ID in enumerate(tqdm.tqdm(IDs)):
         cwd = os.path.join(extracted_folder, ID)
         result[ID] = dict()
