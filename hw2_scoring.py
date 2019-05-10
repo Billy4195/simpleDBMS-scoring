@@ -56,10 +56,13 @@ def extract_zipfiles(src_folder, dst_folder):
 
     return IDs
 
-def exe_sys_test(work_place):
-    devnull = open(os.devnull, "w")
+def os_exe_sys_test(work_place, testsuite_path, verbose=False):
+    if verbose:
+        devnull = None
+    else:
+        devnull = open(os.devnull, "w")
     rm_test_exe = ["rm", "-rf", os.path.join(work_place, "test")]
-    cp_test_exe = ["cp", "-R", "simpleDBMS/test", work_place]
+    cp_test_exe = ["cp", "-R", testsuite_path, work_place]
     make_clean_exe = ["make", "clean"]
     make_exe = ["make"]
     system_test_exe = ["python", "test/system/system_test.py", "./shell"]
@@ -69,11 +72,45 @@ def exe_sys_test(work_place):
     subprocess.Popen(make_exe, cwd=work_place, stdout=devnull, stderr=devnull).wait()
     subprocess.Popen(system_test_exe, cwd=work_place, stdout=devnull, stderr=devnull).wait()
 
+def execute_sys_test(result, target_folder, testsuite_path, verbose):
+    for idx, ID in enumerate(tqdm.tqdm(result)):
+        cwd = os.path.join(target_folder, ID)
+        result[ID] = dict()
+        work_place = None
+        for root, file_ in mywalk_folder(cwd):
+            if file_ == "Makefile":
+                work_place = root
+                break
+
+        if work_place is None:
+            result[ID]["error"] = "No Makefile"
+            continue
+        else:
+            result[ID]["error"] = ""
+
+        os_exe_sys_test(work_place, testsuite_path, verbose)
+
+        result_file_path = os.path.join(work_place, "result.json")
+        if not os.path.isfile(result_file_path):
+            result[ID]["error"] = "system test failed, maybe segmentation fault"
+            continue
+
+        with open(result_file_path) as fp:
+            stu_result = json.load(fp)
+
+        result[ID].update(stu_result)
+
+        if idx % 5 == 0:
+            with open("result.json", "w") as fp:
+                json.dump(result, fp)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("target_folder",
                         help="The scoring target folder, may be folder of users' submissions, or single user submission folder")
     parser.add_argument("--extract", help="Give student submission folder which contains zipfiles, the extracted file will be placed into ``target_folder``")
+    parser.add_argument("--testsuite_path", default="simpleDBMS/test", help="The testsuites for scoring")
+    parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     #Extract zip file
@@ -87,6 +124,7 @@ if __name__ == "__main__":
         for ID in IDs:
             result[ID] = dict()
 
+    execute_sys_test(result, args.target_folder, args.testsuite_path, args.verbose)
     """
     for idx, ID in enumerate(tqdm.tqdm(IDs)):
         cwd = os.path.join(extracted_folder, ID)
