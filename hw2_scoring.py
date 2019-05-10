@@ -107,23 +107,7 @@ def execute_sys_test(result, target_folder, testsuite_path, verbose):
             with open("result.json", "w") as fp:
                 json.dump(result, fp)
 
-def cal_score(result_file, score_file, csv_filename):
-    with open(result_file , 'r') as reader:
-        result = json.loads(reader.read())
-    with open(score_file , 'r') as reader:
-        score_dist = json.loads(reader.read())
-
-    for ID in result:
-        print(ID, "error" in result[ID])
-    # Get student ID list and testcases list
-    # Empty dataframe with student ID
-    ID_list = result.keys()
-    testsuite_list = list()
-    for level in score_dist:
-        testsuite_list += score_dist[level]['testsuites']
-
-    final_ = pd.DataFrame(index=ID_list)
-
+def cal_question_score(result, testsuite_list, score_dist):
     # how many testsuite in the testcase
     testcase_num = dict()
     for stu_id in result:
@@ -140,6 +124,24 @@ def cal_score(result_file, score_file, csv_filename):
             total_questions += testcase_num[suite]
         for suite in score_dist[level]['testsuites']:
             score_each_suite_quest[suite]= score_dist[level]['score'] / total_questions
+
+    return score_each_suite_quest
+
+def cal_score(result_file, score_file, csv_filename):
+    with open(result_file , 'r') as reader:
+        result = json.loads(reader.read())
+    with open(score_file , 'r') as reader:
+        score_dist = json.loads(reader.read())
+
+    # Get student ID list and testcases list
+    ID_list = result.keys()
+    testsuite_list = list()
+    for level in score_dist:
+        testsuite_list += score_dist[level]['testsuites']
+
+    final_ = pd.DataFrame(index=ID_list)
+
+    score_each_suite_quest = cal_question_score(result, testsuite_list, score_dist)
 
     # Calculate score for each student and each testcase, and then sum up each testcase score
     for stu_id in ID_list:
