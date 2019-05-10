@@ -139,34 +139,34 @@ def cal_score(result_file, score_file, csv_filename):
     for level in score_dist:
         testsuite_list += score_dist[level]['testsuites']
 
-    final_ = pd.DataFrame(index=ID_list)
+    score_table = pd.DataFrame(index=ID_list)
 
     score_each_suite_quest = cal_question_score(result, testsuite_list, score_dist)
 
     # Calculate score for each student and each testcase, and then sum up each testcase score
     for stu_id in ID_list:
-        final_.loc[stu_id, 'Student ID'] = stu_id
-        final_.loc[stu_id, 'error'] = result[stu_id]['error']
+        score_table.loc[stu_id, 'Student ID'] = stu_id
+        score_table.loc[stu_id, 'error'] = result[stu_id]['error']
         if result[stu_id]['error']:
-            final_.loc[stu_id,'Total_Score'] = 0
+            score_table.loc[stu_id,'Total_Score'] = 0
             for suite in testsuite_list:
-                final_.loc[stu_id, suite] = 0
+                score_table.loc[stu_id, suite] = 0
         else:
             for suite in testsuite_list:
-                final_.loc[stu_id, suite] = result[stu_id][suite]['correct'] \
+                score_table.loc[stu_id, suite] = result[stu_id][suite]['correct'] \
                                 *score_each_suite_quest[suite]
 
-            final_.loc[stu_id,'Total_Score'] = final_.loc[stu_id, testsuite_list].sum()
+            score_table.loc[stu_id,'Total_Score'] = score_table.loc[stu_id, testsuite_list].sum()
 
-    if csv_filename[-4:] != ".csv":
-        csv_filename = csv_filename+'.csv'
+    if csv_filename.endswith(".csv"):
+        csv_filename = csv_filename + ".csv"
 
     # Reorder error col to last column
-    columns = final_.columns.tolist()
+    columns = score_table.columns.tolist()
     columns.remove("error")
-    final_ = final_[ columns + ["error"] ]
+    score_table = score_table[ columns + ["error"] ]
 
-    final_.to_csv(csv_filename, index=False)
+    score_table.to_csv(csv_filename, index=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
