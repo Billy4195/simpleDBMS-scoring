@@ -35,8 +35,7 @@ def extract_zipfiles(src_folder, dst_folder):
     if not os.path.isdir(dst_folder):
         os.mkdir(dst_folder)
 
-    IDs = list()
-    failed_list = list()
+    IDs = dict()
 
     sub_folders = os.listdir(src_folder)
     for sub_folder in sub_folders:
@@ -44,6 +43,7 @@ def extract_zipfiles(src_folder, dst_folder):
 
         # Extract student ID
         ID = re.search(ID_pattern, sub_folder).group(0)
+        IDs[ID] = dict()
 
         # Check destination path
         extracted_path = os.path.join(dst_folder, ID)
@@ -52,12 +52,9 @@ def extract_zipfiles(src_folder, dst_folder):
 
         ret, msg = search_and_extract_zipfile(cwd, extracted_path)
         if not ret:
-            failed_list.append({ID: msg})
-            print(msg)
+            IDs[ID]["error"] = msg
 
-        IDs.append(ID)
-
-    return IDs, failed_list
+    return IDs
 
 def exe_sys_test(work_place):
     devnull = open(os.devnull, "w")
@@ -81,8 +78,8 @@ if __name__ == "__main__":
 
     #Extract zip file
     if args.extract:
-        IDs, failed_list = extract_zipfiles(args.extract, args.target_folder)
-
+        IDs = extract_zipfiles(args.extract, args.target_folder)
+    
     """
     result = {}
     # May contains student files added manually
