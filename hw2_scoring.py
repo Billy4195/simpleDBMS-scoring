@@ -127,7 +127,7 @@ def cal_question_score(result, testsuite_list, score_dist):
 
     return score_each_suite_quest
 
-def cal_score(result_file, score_file, csv_filename):
+def cal_score(result_file, score_file):
     with open(result_file , 'r') as reader:
         result = json.loads(reader.read())
     with open(score_file , 'r') as reader:
@@ -158,7 +158,10 @@ def cal_score(result_file, score_file, csv_filename):
 
             score_table.loc[stu_id,'Total_Score'] = score_table.loc[stu_id, testsuite_list].sum()
 
-    if csv_filename.endswith(".csv"):
+    return score_table
+
+def store_score_table(score_table, csv_filename):
+    if not csv_filename.endswith(".csv"):
         csv_filename = csv_filename + ".csv"
 
     # Reorder error col to last column
@@ -191,5 +194,6 @@ if __name__ == "__main__":
     execute_sys_test(result, args.target_folder, args.testsuite_path, args.verbose)
     with open("result.json", "w") as fp:
         json.dump(result, fp)
-    cal_score("result.json", "score_distribution.json", "hw2_result.csv")
+    score_table = cal_score("result.json", "score_distribution.json")
+    store_score_table(score_table, "hw2_result.csv")
 
