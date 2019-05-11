@@ -7,9 +7,6 @@ import tqdm
 import argparse
 import pandas as pd
 
-target_folder = 'HW2_submission'
-extracted_folder = "extracted"
-
 ID_pattern = '^\d{7}'
 
 def mywalk_folder(cwd, ext=None):
@@ -59,23 +56,28 @@ def extract_zipfiles(src_folder, dst_folder):
 
     return IDs
 
-def os_exe_sys_test(work_place, testsuite_path, verbose=False):
+def os_exe_sys_test(work_place, testsuite_path, verbose=False, old_version_test=None):
     if verbose:
         devnull = None
     else:
         devnull = open(os.devnull, "w")
+    rm_pre_result_exe = ["rm", "-f", os.path.join(work_place, "result.json")]
     rm_test_exe = ["rm", "-rf", os.path.join(work_place, "test")]
-    cp_test_exe = ["cp", "-R", testsuite_path, work_place]
+    if old_version_test:
+        cp_test_exe = ["cp", "-R", old_version_test, work_place]
+    else:
+        cp_test_exe = ["cp", "-R", testsuite_path, work_place]
     make_clean_exe = ["make", "clean"]
     make_exe = ["make"]
     system_test_exe = ["python", "test/system/system_test.py", "./shell"]
+    subprocess.Popen(rm_pre_result_exe, stdout=devnull, stderr=devnull).wait()
     subprocess.Popen(rm_test_exe, stdout=devnull, stderr=devnull).wait()
     subprocess.Popen(cp_test_exe, stdout=devnull, stderr=devnull).wait()
     subprocess.Popen(make_clean_exe, cwd=work_place, stdout=devnull, stderr=devnull).wait()
     subprocess.Popen(make_exe, cwd=work_place, stdout=devnull, stderr=devnull).wait()
     subprocess.Popen(system_test_exe, cwd=work_place, stdout=devnull, stderr=devnull).wait()
 
-def execute_sys_test(result, target_folder, testsuite_path, verbose):
+def execute_sys_test(result, target_folder, testsuite_path, verbose, old_version_test):
     for idx, ID in enumerate(tqdm.tqdm(result)):
         cwd = os.path.join(target_folder, ID)
         result[ID] = dict()
@@ -94,6 +96,12 @@ def execute_sys_test(result, target_folder, testsuite_path, verbose):
         os_exe_sys_test(work_place, testsuite_path, verbose)
 
         result_file_path = os.path.join(work_place, "result.json")
+
+        #Retry old version test
+        if not os.path.isfile(result_file_path):
+            print("Retry old version test", ID)
+            os_exe_sys_test(work_place, testsuite_path, verbose, old_version_test)
+
         if not os.path.isfile(result_file_path):
             result[ID]["error"] = "system test failed, maybe segmentation fault"
             continue
@@ -103,9 +111,7 @@ def execute_sys_test(result, target_folder, testsuite_path, verbose):
 
         result[ID].update(stu_result)
 
-        if idx % 5 == 0:
-            with open("result.json", "w") as fp:
-                json.dump(result, fp)
+    return result
 
 def cal_question_score(result, testsuite_list, score_dist):
     # how many testsuite in the testcase
@@ -177,8 +183,11 @@ if __name__ == "__main__":
                         help="The scoring target folder, may be folder of users' submissions, or single user submission folder")
     parser.add_argument("--extract", help="Give student submission folder which contains zipfiles, the extracted file will be placed into ``target_folder``")
     parser.add_argument("--testsuite_path", default="simpleDBMS/test", help="The testsuites for scoring")
+    parser.add_argument("--old_version_test", default="old_test/test", help="For old version system test")
+    parser.add_argument("--result_file", default="hw2_final_score.csv", help="Final result for scoring")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
+
 
     #Extract zip file
     if args.extract:
@@ -191,20 +200,32 @@ if __name__ == "__main__":
         for ID in IDs:
             result[ID] = dict()
 
-    execute_sys_test(result, args.target_folder, args.testsuite_path, args.verbose)
-    with open("result.json", "w") as fp:
-        json.dump(result, fp)
-    score_table = cal_score("result.json", "score_distribution.json")
-    store_score_table(score_table, "hw2_result.csv")
+    result = execute_sys_test(result, args.target_folder,
+                     args.testsuite_path, args.verbose,
+                     args.old_version_test)
 
-    all_stu_IDs = pd.read_csv("student_list.txt", header=None)
-    scores = pd.read_csv("hw2_result.csv")
-    all_stu_IDs.columns = ["Id"]
-    all_stu_IDs = all_stu_IDs.set_index("Id")
+    merged_result_file = "merge_result.json"
+    score_distribution_file = "score_distribution.json"
+    student_list_file = "student_list.txt"
+    sub_score_csv = "hw2_result.csv"
+
+    with open(merged_result_file, "w") as fp:
+        json.dump(result, fp)
+
+    score_table = cal_score(merged_result_file, score_distribution_file)
+    store_score_table(score_table, sub_score_csv)
+
+    all_stu_IDs = pd.read_csv(student_list_file, header=None, dtype="object")
+    scores = pd.read_csv(sub_score_csv, dtype={"Student_ID": "object"})
+    all_stu_IDs.columns = ["Student_ID"]
+    all_stu_IDs = all_stu_IDs.set_index("Student_ID")
     scores = scores.set_index("Student_ID")
 
-    result = pd.concat([all_stu_IDs, scores], axis=1)
+    result = pd.merge(all_stu_IDs, scores, how="left",
+                      left_on="Student_ID", right_on="Student_ID",
+                      sort=True)
+
     no_submission = result.isnull().all(axis=1)
     result.loc[no_submission, "error"] = "No submission"
-    result.to_csv("hw2_final_score.csv")
+    result.to_csv(args.result_file)
 
