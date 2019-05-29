@@ -77,7 +77,7 @@ def os_exe_sys_test(work_place, testsuite_path, verbose=False, old_version_test=
     subprocess.Popen(make_exe, cwd=work_place, stdout=devnull, stderr=devnull).wait()
     subprocess.Popen(system_test_exe, cwd=work_place, stdout=devnull, stderr=devnull).wait()
 
-def execute_sys_test(result, target_folder, testsuite_path, verbose, old_version_test):
+def execute_sys_test(result, target_folder, testsuite_path, verbose, old_version_test, no_run):
     for idx, ID in enumerate(tqdm.tqdm(result)):
         cwd = os.path.join(target_folder, ID)
         result[ID] = dict()
@@ -93,12 +93,13 @@ def execute_sys_test(result, target_folder, testsuite_path, verbose, old_version
         else:
             result[ID]["error"] = ""
 
-        os_exe_sys_test(work_place, testsuite_path, verbose)
+        if not no_run:
+            os_exe_sys_test(work_place, testsuite_path, verbose)
 
         result_file_path = os.path.join(work_place, "result.json")
 
         #Retry old version test
-        if not os.path.isfile(result_file_path):
+        if not os.path.isfile(result_file_path) and old_version_test is not None:
             print("Retry old version test", ID)
             os_exe_sys_test(work_place, testsuite_path, verbose, old_version_test)
 
@@ -182,8 +183,9 @@ if __name__ == "__main__":
     parser.add_argument("target_folder",
                         help="The scoring target folder, may be folder of users' submissions, or single user submission folder")
     parser.add_argument("--extract", help="Give student submission folder which contains zipfiles, the extracted file will be placed into ``target_folder``")
+    parser.add_argument("--no_run", action="store_true", help="Do not run test, only calculate scores")
     parser.add_argument("--testsuite_path", default="simpleDBMS/test", help="The testsuites for scoring")
-    parser.add_argument("--old_version_test", default="old_test/test", help="For old version system test")
+    parser.add_argument("--old_version_test", default=None, help="For old version system test")
     parser.add_argument("--result_file", default="hw2_final_score.csv", help="Final result for scoring")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
@@ -202,7 +204,8 @@ if __name__ == "__main__":
 
     result = execute_sys_test(result, args.target_folder,
                      args.testsuite_path, args.verbose,
-                     args.old_version_test)
+                     args.old_version_test,
+                     args.no_run)
 
     merged_result_file = "merge_result.json"
     score_distribution_file = "score_distribution.json"
